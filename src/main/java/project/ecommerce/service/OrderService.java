@@ -11,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -31,6 +33,10 @@ public class OrderService {
     private final EmailService emailService;
 
 
+    @Caching(evict = {
+            @CacheEvict(value = "dashboard", allEntries = true),
+            @CacheEvict(value = "topProducts", allEntries = true)
+    })
     @Transactional
     public OrderResponse checkout(String email, Long addressId) {
         User user = userRepository.findByEmail(email)
@@ -131,6 +137,10 @@ public class OrderService {
         return toResponse(order);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "dashboard", allEntries = true),
+            @CacheEvict(value = "topProducts", allEntries = true)
+    })
     @Transactional
     public OrderResponse cancel(String email, Long orderId) {
         User user = userRepository.findByEmail(email)

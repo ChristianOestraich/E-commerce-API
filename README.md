@@ -11,9 +11,11 @@ API REST completa para plataforma de e-commerce, desenvolvida com Java e Spring 
 - **Spring Security + JWT**
 - **Spring Data JPA**
 - **MySQL**
+- **Redis (Cache)**
 - **MercadoPago SDK**
 - **Spring Mail (Gmail SMTP)**
 - **SpringDoc OpenAPI (Swagger)**
+- **JUnit 5 + Mockito (Testes)**
 - **Lombok**
 - **Maven**
 
@@ -23,11 +25,21 @@ API REST completa para plataforma de e-commerce, desenvolvida com Java e Spring 
 
 ### Pré-requisitos
 
-- Java 24
+- Java 21
 - Maven
 - MySQL rodando localmente
+- Redis rodando localmente
 - Conta no [MercadoPago Developers](https://www.mercadopago.com.br/developers)
 - Conta Gmail com senha de app configurada
+
+### Instalando o Redis (Mac)
+
+```bash
+brew install redis
+brew services start redis
+redis-cli ping
+# Deve retornar: PONG
+```
 
 ### Configuração do `application.properties`
 
@@ -70,6 +82,12 @@ spring.mail.username=seuemail@gmail.com
 spring.mail.password=sua_senha_de_app
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
+
+# Redis
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+spring.cache.type=redis
+spring.cache.redis.time-to-live=600000
 ```
 
 ### Executando o projeto
@@ -374,6 +392,24 @@ GET /api/admin/reports/sales-by-period
 
 ---
 
+### Lista de Desejos — `/api/wishlist`
+
+| Metodo | Endpoint | Descricao | Acesso |
+|---|---|---|---|
+| GET | `/api/wishlist` | Lista todos os itens | Autenticado |
+| POST | `/api/wishlist/{productId}` | Adiciona produto | Autenticado |
+| DELETE | `/api/wishlist/{productId}` | Remove produto | Autenticado |
+| GET | `/api/wishlist/{productId}/check` | Verifica se esta na wishlist | Autenticado |
+| POST | `/api/wishlist/{productId}/move-to-cart?quantity=1` | Move para o carrinho | Autenticado |
+| DELETE | `/api/wishlist` | Limpa toda a wishlist | Autenticado |
+
+**Regras:**
+- Um produto nao pode ser adicionado duas vezes na mesma wishlist
+- Ao mover para o carrinho, o item e removido automaticamente da wishlist
+- Quando o ADMIN reduz o preco de um produto, todos os usuarios que tem ele na wishlist recebem um email de notificacao
+
+---
+
 ## Notificacoes de Email
 
 Emails sao enviados automaticamente e de forma assincrona nos seguintes eventos:
@@ -385,6 +421,7 @@ Emails sao enviados automaticamente e de forma assincrona nos seguintes eventos:
 | Pagamento aprovado | Pagamento confirmado |
 | Cancelamento | Pedido cancelado |
 | Status atualizado | Novo status do pedido |
+| Preco reduzido | Notificacao de queda de preco para usuarios da wishlist |
 
 ---
 
@@ -394,6 +431,7 @@ Emails sao enviados automaticamente e de forma assincrona nos seguintes eventos:
 src/main/java/project/ecommerce/
 ├── config/
 │   ├── MercadoPagoConfiguration.java
+│   ├── RedisConfig.java
 │   ├── SecurityConfig.java
 │   └── SwaggerConfig.java
 ├── controller/
@@ -408,7 +446,8 @@ src/main/java/project/ecommerce/
 │   ├── ProductImageController.java
 │   ├── ProductReviewController.java
 │   ├── ReportController.java
-│   └── UserController.java
+│   ├── UserController.java
+│   └── WishlistController.java
 ├── dto/
 │   ├── report/
 │   │   ├── DashboardSummaryResponse.java
@@ -438,7 +477,9 @@ src/main/java/project/ecommerce/
 │   ├── RegisterRequest.java
 │   ├── ReviewRequest.java
 │   ├── ReviewResponse.java
-│   └── UserResponse.java
+│   ├── UserResponse.java
+│   ├── WishlistItemResponse.java
+│   └── WishlistResponse.java
 ├── entity/
 │   ├── enums/
 │   │   ├── DiscountType.java
@@ -456,7 +497,8 @@ src/main/java/project/ecommerce/
 │   ├── Product.java
 │   ├── ProductReview.java
 │   ├── RefreshToken.java
-│   └── User.java
+│   ├── User.java
+│   └── WishlistItem.java
 ├── exception/
 │   └── GlobalExceptionHandler.java
 ├── repository/
@@ -471,7 +513,8 @@ src/main/java/project/ecommerce/
 │   ├── ProductRepository.java
 │   ├── ProductReviewRepository.java
 │   ├── RefreshTokenRepository.java
-│   └── UserRepository.java
+│   ├── UserRepository.java
+│   └── WishlistRepository.java
 ├── security/
 │   ├── JwtAuthFilter.java
 │   └── JwtUtil.java
@@ -488,7 +531,16 @@ src/main/java/project/ecommerce/
     ├── ProductService.java
     ├── ReportService.java
     ├── RefreshTokenService.java
-    └── UserService.java
+    ├── UserService.java
+    └── WishlistService.java
+
+src/test/java/project/ecommerce/service/
+    ├── AuthServiceTest.java
+    ├── CartServiceTest.java
+    ├── CouponServiceTest.java
+    ├── OrderServiceTest.java
+    ├── ProductServiceTest.java
+    └── ReportServiceTest.java
 ```
 
 ---
@@ -503,6 +555,56 @@ src/main/java/project/ecommerce/
 - **GlobalExceptionHandler** para respostas de erro padronizadas
 - **Paginacao** nos endpoints de listagem com `Pageable`
 - **Validacoes** com `@Valid`, `@NotBlank`, `@Min`, `@Max` nos DTOs
+- **Cache com Redis** em listagens de produtos, categorias, cupons e relatorios
+- **Cache Eviction** automatico ao criar, editar ou desativar entidades
+- **Testes automatizados** com JUnit 5 e Mockito cobrindo os principais services
+
+---
+
+## Cache Redis
+
+| Cache | TTL | Invalidado quando |
+|---|---|---|
+| `products` | 10 min | Criar, editar, desativar produto |
+| `product` | 10 min | Editar, desativar produto |
+| `categories` | 15 min | Criar, editar, desativar categoria |
+| `category` | 15 min | Editar, desativar categoria |
+| `coupons` | 5 min | Criar, desativar cupom |
+| `dashboard` | 5 min | Checkout, cancelamento de pedido |
+| `topProducts` | 5 min | Checkout, cancelamento de pedido |
+| `lowStock` | 3 min | Expira automaticamente |
+
+```bash
+# Comandos uteis no Redis CLI
+redis-cli ping          # Verifica conexao
+redis-cli keys *        # Lista todas as chaves em cache
+redis-cli flushall      # Limpa todo o cache
+```
+
+---
+
+## Testes automatizados
+
+```bash
+# Rodar todos os testes
+mvn test
+
+# Rodar um arquivo especifico
+mvn test -Dtest=AuthServiceTest
+
+# Rodar com relatorio detalhado
+mvn test -Dsurefire.useFile=false
+```
+
+| Classe | Testes | Cenarios cobertos |
+|---|---|---|
+| `AuthServiceTest` | 5 | Registro, login, usuario inativo, senha errada, email duplicado |
+| `ProductServiceTest` | 5 | Criar, listar, buscar, desativar, categoria inexistente |
+| `CartServiceTest` | 4 | Ver carrinho, adicionar item, estoque insuficiente, limpar |
+| `OrderServiceTest` | 5 | Checkout, carrinho vazio, estoque, cancelar, pedido entregue |
+| `CouponServiceTest` | 8 | Criar, validar, expirado, minimo, % desconto, fixo, nulo |
+| `ReportServiceTest` | 5 | Dashboard, top produtos, estoque baixo, periodo invalido, receita |
+| **Total** | **32** | — |
 
 ---
 
@@ -515,6 +617,7 @@ spring-boot-starter-data-jpa
 spring-boot-starter-security
 spring-boot-starter-validation
 spring-boot-starter-mail
+spring-boot-starter-data-redis
 
 <!-- Banco de dados -->
 mysql-connector-j
@@ -529,6 +632,9 @@ springdoc-openapi-starter-webmvc-ui (2.8.6)
 
 <!-- Pagamento -->
 mercadopago sdk-java (2.1.24)
+
+<!-- Testes -->
+spring-boot-starter-test (JUnit 5 + Mockito)
 
 <!-- Utilitarios -->
 lombok

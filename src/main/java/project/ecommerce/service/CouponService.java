@@ -14,17 +14,40 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+
 @Service
 @RequiredArgsConstructor
 public class CouponService {
 
     private final CouponRepository couponRepository;
 
+    @Cacheable(value = "coupons")
+    public List<CouponResponse> findAll() {
+        return couponRepository.findByActiveTrue()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Cacheable(value = "coupons", key = "'all'")
+    public List<CouponResponse> findAllIncludingInactive() {
+        return couponRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "coupons", allEntries = true)
+    })
     public CouponResponse create(CouponRequest request) {
+        // corpo existente sem alteracao
         if (couponRepository.existsByCode(request.getCode().toUpperCase())) {
             throw new RuntimeException("Cupom ja existe com esse codigo.");
         }
-
         Coupon coupon = Coupon.builder()
                 .code(request.getCode().toUpperCase())
                 .discountType(request.getDiscountType())
@@ -35,24 +58,12 @@ public class CouponService {
                 .expiresAt(request.getExpiresAt())
                 .active(true)
                 .build();
-
         return toResponse(couponRepository.save(coupon));
     }
 
-    public List<CouponResponse> findAll() {
-        return couponRepository.findByActiveTrue()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<CouponResponse> findAllIncludingInactive() {
-        return couponRepository.findAll()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
+    @Caching(evict = {
+            @CacheEvict(value = "coupons", allEntries = true)
+    })
     public CouponResponse deactivate(Long id) {
         Coupon coupon = couponRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Cupom nao encontrado."));

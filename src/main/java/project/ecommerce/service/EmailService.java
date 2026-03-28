@@ -9,6 +9,8 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -32,6 +34,47 @@ public class EmailService {
         } catch (MessagingException e) {
             log.error("Erro ao enviar email para {}: {}", to, e.getMessage());
         }
+    }
+
+    @Async
+    public void sendPriceDropEmail(String to, String name,
+                                   String productName, BigDecimal newPrice) {
+        String subject = "Queda de preco: " + productName;
+        String content = """
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333;">
+                <div style="max-width: 600px; margin: auto; padding: 20px;">
+                    <h2 style="color: #E91E63;">Preco baixou!</h2>
+                    <p>Ola, <strong>%s</strong>!</p>
+                    <p>Um produto da sua lista de desejos esta em promocao:</p>
+                    <table style="width:100%%; border-collapse: collapse; margin-top: 10px;">
+                        <tr style="background-color: #f2f2f2;">
+                            <td style="padding: 8px; border: 1px solid #ddd;">
+                                <strong>Produto</strong>
+                            </td>
+                            <td style="padding: 8px; border: 1px solid #ddd;">
+                                %s
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #ddd;">
+                                <strong>Novo preco</strong>
+                            </td>
+                            <td style="padding: 8px; border: 1px solid #ddd;
+                                       color: #E91E63;">
+                                <strong>R$ %s</strong>
+                            </td>
+                        </tr>
+                    </table>
+                    <br>
+                    <p>Corra antes que acabe!</p>
+                    <p><strong>Equipe E-commerce</strong></p>
+                </div>
+            </body>
+            </html>
+            """.formatted(name, productName, newPrice.toPlainString());
+
+        sendEmail(to, subject, content);
     }
 
     // Email de boas vindas apos registro

@@ -8,6 +8,7 @@ import project.ecommerce.entity.enums.OrderStatus;
 import project.ecommerce.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class ReportService {
     private final CouponRepository couponRepository;
 
     // Resumo geral do dashboard
+    @Cacheable(value = "dashboard")
     public DashboardSummaryResponse getDashboardSummary() {
         Long totalUsers = userRepository.count();
         Long totalOrders = orderRepository.count();
@@ -46,6 +48,7 @@ public class ReportService {
     }
 
     // Produtos mais vendidos
+    @Cacheable(value = "topProducts", key = "#limit")
     public List<TopProductResponse> getTopProducts(int limit) {
         return orderItemRepository.findTopProducts(PageRequest.of(0, limit));
     }
@@ -73,6 +76,7 @@ public class ReportService {
     }
 
     // Produtos com estoque baixo
+    @Cacheable(value = "lowStock", key = "#threshold")
     public List<LowStockResponse> getLowStockProducts(int threshold) {
         return productRepository.findLowStock(threshold)
                 .stream()

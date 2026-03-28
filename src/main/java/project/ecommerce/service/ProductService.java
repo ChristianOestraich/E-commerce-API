@@ -10,24 +10,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import project.ecommerce.repository.WishlistRepository;
 
 @Service
 @RequiredArgsConstructor
 public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-
-    public ProductResponse create(ProductRequest request) {
-        Category category = categoryRepository.findById(request.getCategoryId()).orElseThrow(() -> new RuntimeException("Categoria não encontrada."));
-
-        Product product = Product.builder().name(request.getName()).description(request.getDescription()).price(request.getPrice()).stockQuantity(request.getStockQuantity()).imageUrl(request.getImageUrl()).active(true).category(category).build();
-
-        return toResponse(productRepository.save(product));
-    }
-
-    public Page<ProductResponse> findAll(Pageable pageable) {
-        return productRepository.findByActiveTrue(pageable).map(this::toResponse);
-    }
+    private final WishlistRepository wishlistRepository;
+    private final EmailService emailService;
 
     public Page<ProductResponse> findByCategory(Long categoryId, Pageable pageable) {
         return productRepository.findByCategoryIdAndActiveTrue(categoryId, pageable).map(this::toResponse);
@@ -35,39 +29,6 @@ public class ProductService {
 
     public Page<ProductResponse> search(String name, Pageable pageable) {
         return productRepository.findByNameContainingIgnoreCaseAndActiveTrue(name, pageable).map(this::toResponse);
-    }
-
-    public ProductResponse findById(Long id) {
-        return toResponse(productRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado.")));
-    }
-
-    public Page<ProductResponse> findAllIncludingInactive(Pageable pageable) {
-        return productRepository.findAll(pageable)
-                .map(this::toResponse);
-    }
-
-    public ProductResponse update(Long id, ProductRequest request) {
-        Product product = productRepository.findByIdAndActiveTrue(id)
-                .orElseThrow(() -> new RuntimeException("Produto não encontrado."));
-
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Categoria não encontrada."));
-
-        product.setName(request.getName());
-        product.setDescription(request.getDescription());
-        product.setPrice(request.getPrice());
-        product.setStockQuantity(request.getStockQuantity());
-        product.setImageUrl(request.getImageUrl());
-        product.setCategory(category);
-
-        return toResponse(productRepository.save(product));
-    }
-
-    public void deactivate(Long id) {
-        Product product = productRepository.findById(id).orElseThrow(() -> new RuntimeException("Produto não encontrado."));
-        product.setActive(false);
-        productRepository.save(product);
     }
 
     private ProductResponse toResponse(Product product) {
@@ -81,5 +42,93 @@ public class ProductService {
         response.setActive(product.getActive());
         response.setCategoryName(product.getCategory().getName());
         return response;
+    }
+
+    @Cacheable(value = "products", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<ProductResponse> findAll(Pageable pageable) {
+        return productRepository.findByActiveTrue(pageable)
+                .map(this::toResponse);
+    }
+
+    @Cacheable(value = "products",
+            key = "'all-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+    public Page<ProductResponse> findAllIncludingInactive(Pageable pageable) {
+        return productRepository.findAll(pageable)
+                .map(this::toResponse);
+    }
+
+    @Cacheable(value = "product", key = "#id")
+    public ProductResponse findById(Long id) {
+        return toResponse(productRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado.")));
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "products", allEntries = true),
+            @CacheEvict(value = "product", key = "#result.id")
+    })
+    public ProductResponse create(ProductRequest request) {
+        // metodo existente sem alteracao no corpo
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Categoria não encontrada."));
+
+        Product product = Product.builder()
+                .name(request.getName())
+                .description(request.getDescription())
+                .price(request.getPrice())
+                .stockQuantity(request.getStockQuantity())
+                .imageUrl(request.getImageUrl())
+                .active(true)
+                .category(category)
+                .build();
+
+        return toResponse(productRepository.save(product));
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "products", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
+    public ProductResponse update(Long id, ProductRequest request) {
+        Product product = productRepository.findByIdAndActiveTrue(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado."));
+
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Categoria não encontrada."));
+
+        boolean priceDropped = request.getPrice().compareTo(product.getPrice()) < 0;
+
+        product.setName(request.getName());
+        product.setDescription(request.getDescription());
+        product.setPrice(request.getPrice());
+        product.setStockQuantity(request.getStockQuantity());
+        product.setImageUrl(request.getImageUrl());
+        product.setCategory(category);
+
+        ProductResponse response = toResponse(productRepository.save(product));
+
+        // Notifica usuarios da wishlist se o preco baixou
+        if (priceDropped) {
+            wishlistRepository.findByProduct(product)
+                    .forEach(item -> emailService.sendPriceDropEmail(
+                            item.getUser().getEmail(),
+                            item.getUser().getName(),
+                            product.getName(),
+                            request.getPrice()
+                    ));
+        }
+
+        return response;
+    }
+
+    @Caching(evict = {
+            @CacheEvict(value = "products", allEntries = true),
+            @CacheEvict(value = "product", key = "#id")
+    })
+    public void deactivate(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Produto não encontrado."));
+        product.setActive(false);
+        productRepository.save(product);
     }
 }
