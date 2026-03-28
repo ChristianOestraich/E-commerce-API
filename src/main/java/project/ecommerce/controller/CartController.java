@@ -1,5 +1,6 @@
 package project.ecommerce.controller;
 
+import project.ecommerce.dto.ApplyCouponRequest;
 import project.ecommerce.dto.CartItemRequest;
 import project.ecommerce.dto.CartResponse;
 import project.ecommerce.service.CartService;
@@ -43,5 +44,16 @@ public class CartController {
     public ResponseEntity<Void> clearCart(Authentication auth) {
         cartService.clearCart(auth.getName());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/coupon")
+    public ResponseEntity<CartResponse> applyCoupon(Authentication auth,
+                                                    @Valid @RequestBody ApplyCouponRequest request) {
+        return ResponseEntity.ok(cartService.applyCoupon(auth.getName(), request.getCode()));
+    }
+
+    @DeleteMapping("/coupon")
+    public ResponseEntity<CartResponse> removeCoupon(Authentication auth) {
+        return ResponseEntity.ok(cartService.removeCoupon(auth.getName()));
     }
 }

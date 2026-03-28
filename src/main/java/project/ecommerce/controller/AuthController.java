@@ -2,16 +2,21 @@ package project.ecommerce.controller;
 
 import project.ecommerce.dto.*;
 import project.ecommerce.service.AuthService;
+import project.ecommerce.service.RefreshTokenService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+
     private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
 
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
@@ -21,5 +26,17 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, String>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        String newAccessToken = refreshTokenService.refreshAccessToken(request.getRefreshToken());
+        return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        refreshTokenService.revokeRefreshToken(request.getRefreshToken());
+        return ResponseEntity.noContent().build();
     }
 }

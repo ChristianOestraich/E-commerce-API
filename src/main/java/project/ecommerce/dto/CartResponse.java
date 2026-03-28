@@ -9,5 +9,8 @@ import java.util.List;
 public class CartResponse {
     private Long id;
     private List<CartItemResponse> items;
+    private BigDecimal subtotal;
+    private BigDecimal discount;
     private BigDecimal total;
+    private String couponCode;
 }

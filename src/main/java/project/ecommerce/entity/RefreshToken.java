@@ -3,17 +3,16 @@ package project.ecommerce.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "carts")
+@Table(name = "refresh_tokens")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Cart {
+public class RefreshToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,11 +22,12 @@ public class Cart {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
-    @ManyToOne
-    @JoinColumn(name = "coupon_id")
-    private Coupon coupon;
+    @Column(nullable = false, unique = true)
+    private String token;
 
-    @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
-    private List<CartItem> items = new ArrayList<>();
+    @Column(nullable = false)
+    private LocalDateTime expiresAt;
+
+    @Column(nullable = false)
+    private Boolean revoked = false;
 }

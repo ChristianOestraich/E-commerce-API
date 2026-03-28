@@ -17,6 +17,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class Order {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -33,11 +34,23 @@ public class Order {
     private BigDecimal total;
 
     @Column(nullable = false)
+    @Builder.Default
+    private BigDecimal discount = BigDecimal.ZERO;
+
+    @Column(nullable = false)
     private LocalDateTime createdAt;
 
     @Column(nullable = false)
     @Builder.Default
     private Boolean active = true;
+
+    @ManyToOne
+    @JoinColumn(name = "address_id")
+    private Address deliveryAddress;
+
+    @ManyToOne
+    @JoinColumn(name = "coupon_id")
+    private Coupon coupon;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     @Builder.Default

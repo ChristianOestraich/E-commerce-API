@@ -20,8 +20,10 @@ public class OrderController {
 
     // Checkout — gera pedido a partir do carrinho
     @PostMapping("/checkout")
-    public ResponseEntity<OrderResponse> checkout(Authentication auth) {
-        return ResponseEntity.ok(orderService.checkout(auth.getName()));
+    public ResponseEntity<OrderResponse> checkout(
+            Authentication auth,
+            @RequestParam(required = false) Long addressId) {
+        return ResponseEntity.ok(orderService.checkout(auth.getName(), addressId));
     }
 
     // Cancela pedido (soft delete + devolve estoque)

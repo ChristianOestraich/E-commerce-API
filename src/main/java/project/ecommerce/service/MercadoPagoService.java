@@ -26,6 +26,7 @@ public class MercadoPagoService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final EmailService emailService;
 
     @Transactional
     public PaymentResponse createPreference(String email, Long orderId) {
@@ -111,6 +112,13 @@ public class MercadoPagoService {
             Order order = payment.getOrder();
             order.setStatus(OrderStatus.CONFIRMED);
             orderRepository.save(order);
+
+            emailService.sendPaymentConfirmedEmail(
+                    order.getUser().getEmail(),
+                    order.getUser().getName(),
+                    order.getId(),
+                    payment.getAmount().toPlainString()
+            );
         } else {
             payment.setStatus(PaymentStatus.PENDING);
         }

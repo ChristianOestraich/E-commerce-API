@@ -19,6 +19,7 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final CouponService couponService;
 
     // Busca ou cria o carrinho do usuário autenticado
     private Cart getOrCreateCart(String email) {
@@ -107,6 +108,36 @@ public class CartService {
         cartRepository.save(cart);
     }
 
+    public CartResponse applyCoupon(String email, String code) {
+        Cart cart = getOrCreateCart(email);
+
+        if (cart.getItems().isEmpty()) {
+            throw new RuntimeException("Adicione itens ao carrinho antes de aplicar um cupom.");
+        }
+
+        BigDecimal subtotal = calculateSubtotal(cart);
+        Coupon coupon = couponService.validateCoupon(code, subtotal);
+
+        cart.setCoupon(coupon);
+        cartRepository.save(cart);
+
+        return toResponse(cart);
+    }
+
+    public CartResponse removeCoupon(String email) {
+        Cart cart = getOrCreateCart(email);
+        cart.setCoupon(null);
+        cartRepository.save(cart);
+        return toResponse(cart);
+    }
+
+    private BigDecimal calculateSubtotal(Cart cart) {
+        return cart.getItems().stream()
+                .map(item -> item.getProduct().getPrice()
+                        .multiply(BigDecimal.valueOf(item.getQuantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     // Mapeamento
     private CartResponse toResponse(Cart cart) {
         List<CartItemResponse> itemResponses = cart.getItems()
@@ -114,14 +145,20 @@ public class CartService {
                 .map(this::toItemResponse)
                 .collect(Collectors.toList());
 
-        BigDecimal total = itemResponses.stream()
+        BigDecimal subtotal = itemResponses.stream()
                 .map(CartItemResponse::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal discount = couponService.calculateDiscount(cart.getCoupon(), subtotal);
+        BigDecimal total = subtotal.subtract(discount);
 
         CartResponse response = new CartResponse();
         response.setId(cart.getId());
         response.setItems(itemResponses);
+        response.setSubtotal(subtotal);
+        response.setDiscount(discount);
         response.setTotal(total);
+        response.setCouponCode(cart.getCoupon() != null ? cart.getCoupon().getCode() : null);
         return response;
     }
 

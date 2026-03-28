@@ -1,6 +1,7 @@
 package project.ecommerce.service;
 
 import project.ecommerce.dto.*;
+import project.ecommerce.entity.RefreshToken;
 import project.ecommerce.entity.User;
 import project.ecommerce.entity.enums.Role;
 import project.ecommerce.repository.UserRepository;
@@ -16,10 +17,12 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
+    private final EmailService emailService;
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email já cadastrado.");
+            throw new RuntimeException("Email ja cadastrado.");
         }
 
         User user = User.builder()
@@ -31,23 +34,29 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getRole().name());
+        emailService.sendWelcomeEmail(user.getEmail(), user.getName());
+
+        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return new AuthResponse(accessToken, refreshToken.getToken(), user.getRole().name());
     }
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Usuario nao encontrado."));
 
         if (!Boolean.TRUE.equals(user.getActive())) {
-            throw new RuntimeException("Usuário inativo.");
+            throw new RuntimeException("Usuario inativo.");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("Senha incorreta.");
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
-        return new AuthResponse(token, user.getRole().name());
+        String accessToken = jwtUtil.generateToken(user.getEmail(), user.getRole().name());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return new AuthResponse(accessToken, refreshToken.getToken(), user.getRole().name());
     }
 }

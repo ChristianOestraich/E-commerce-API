@@ -11,8 +11,12 @@ import java.util.List;
 public class OrderResponse {
     private Long id;
     private OrderStatus status;
+    private BigDecimal subtotal;
+    private BigDecimal discount;
     private BigDecimal total;
+    private String couponCode;
     private LocalDateTime createdAt;
     private Boolean active;
+    private AddressResponse deliveryAddress;
     private List<OrderItemResponse> items;
 }
