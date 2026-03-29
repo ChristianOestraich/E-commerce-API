@@ -20,9 +20,12 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createRefreshToken(User user) {
-        // Remove token anterior se existir
+        // Deleta fisicamente o token anterior se existir
         refreshTokenRepository.findByUser(user)
-                .ifPresent(refreshTokenRepository::delete);
+                .ifPresent(existing -> refreshTokenRepository.deleteById(existing.getId()));
+
+        // Força o flush para garantir que o delete foi executado antes do insert
+        refreshTokenRepository.flush();
 
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)

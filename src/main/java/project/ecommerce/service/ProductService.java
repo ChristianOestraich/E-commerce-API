@@ -10,9 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cache.annotation.Caching;
 import project.ecommerce.repository.WishlistRepository;
 
 @Service
@@ -44,29 +41,21 @@ public class ProductService {
         return response;
     }
 
-    @Cacheable(value = "products", key = "#pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProductResponse> findAll(Pageable pageable) {
         return productRepository.findByActiveTrue(pageable)
                 .map(this::toResponse);
     }
 
-    @Cacheable(value = "products",
-            key = "'all-' + #pageable.pageNumber + '-' + #pageable.pageSize")
     public Page<ProductResponse> findAllIncludingInactive(Pageable pageable) {
         return productRepository.findAll(pageable)
                 .map(this::toResponse);
     }
 
-    @Cacheable(value = "product", key = "#id")
     public ProductResponse findById(Long id) {
         return toResponse(productRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado.")));
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "product", key = "#result.id")
-    })
     public ProductResponse create(ProductRequest request) {
         // metodo existente sem alteracao no corpo
         Category category = categoryRepository.findById(request.getCategoryId())
@@ -85,10 +74,6 @@ public class ProductService {
         return toResponse(productRepository.save(product));
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "product", key = "#id")
-    })
     public ProductResponse update(Long id, ProductRequest request) {
         Product product = productRepository.findByIdAndActiveTrue(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado."));
@@ -121,10 +106,6 @@ public class ProductService {
         return response;
     }
 
-    @Caching(evict = {
-            @CacheEvict(value = "products", allEntries = true),
-            @CacheEvict(value = "product", key = "#id")
-    })
     public void deactivate(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Produto não encontrado."));
