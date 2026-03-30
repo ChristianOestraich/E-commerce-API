@@ -35,14 +35,13 @@ API REST completa para plataforma de e-commerce, desenvolvida com Java e Spring 
 
 ```properties
 spring.application.name=e-commerce
-
 # Servidor
 server.port=8080
 
 # MySQL
 spring.datasource.url=jdbc:mysql://localhost:3306/ecommerce_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
 spring.datasource.username=root
-spring.datasource.password=sua_senha
+spring.datasource.password=
 spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
 
 # JPA / Hibernate
@@ -53,16 +52,18 @@ spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
 
 # JWT
 jwt.secret=3f8a2b1c9d4e7f6a0b5c8d2e1f4a7b3c9e2d5f8a1b4c7e0d3f6a9b2c5e8d1f4
-jwt.expiration=900000
+jwt.expiration=28800000
 jwt.refresh.expiration=604800000
 
 # MercadoPago
-mercadopago.access.token=TEST-SEU-ACCESS-TOKEN
+mercadopago.access.token=APP_USR-4970530544399094-032814-48e0ebd95321e094d9f255ada010e8d4-3298971528
 
 # Upload
 spring.servlet.multipart.enabled=true
 spring.servlet.multipart.max-file-size=5MB
 spring.servlet.multipart.max-request-size=5MB
+
+# File storage
 file.upload.dir=uploads/images
 
 # Email
@@ -72,6 +73,9 @@ spring.mail.username=seuemail@gmail.com
 spring.mail.password=sua_senha_de_app
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
+
+# Redis
+spring.cache.type=none
 
 ```
 
