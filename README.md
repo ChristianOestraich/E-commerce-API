@@ -11,7 +11,6 @@ API REST completa para plataforma de e-commerce, desenvolvida com Java e Spring 
 - **Spring Security + JWT**
 - **Spring Data JPA**
 - **MySQL**
-- **Redis (Cache)**
 - **MercadoPago SDK**
 - **Spring Mail (Gmail SMTP)**
 - **SpringDoc OpenAPI (Swagger)**
@@ -31,15 +30,6 @@ API REST completa para plataforma de e-commerce, desenvolvida com Java e Spring 
 - Redis rodando localmente
 - Conta no [MercadoPago Developers](https://www.mercadopago.com.br/developers)
 - Conta Gmail com senha de app configurada
-
-### Instalando o Redis (Mac)
-
-```bash
-brew install redis
-brew services start redis
-redis-cli ping
-# Deve retornar: PONG
-```
 
 ### Configuração do `application.properties`
 
@@ -83,11 +73,6 @@ spring.mail.password=sua_senha_de_app
 spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
-# Redis
-spring.data.redis.host=localhost
-spring.data.redis.port=6379
-spring.cache.type=redis
-spring.cache.redis.time-to-live=600000
 ```
 
 ### Executando o projeto
