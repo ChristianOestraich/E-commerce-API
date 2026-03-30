@@ -1,4 +1,3 @@
-// test/java/project/ecommerce/service/OrderServiceTest.java
 package project.ecommerce.service;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -22,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -34,6 +34,7 @@ class OrderServiceTest {
     @Mock private AddressRepository addressRepository;
     @Mock private CouponService couponService;
     @Mock private EmailService emailService;
+    @Mock private PaymentRepository paymentRepository;
     @InjectMocks private OrderService orderService;
 
     private User user;
@@ -83,6 +84,9 @@ class OrderServiceTest {
                 .active(true)
                 .items(new ArrayList<>())
                 .build();
+
+        // Mock lenient — evita UnnecessaryStubbingException nos testes que lancam excecao antes do toResponse
+        lenient().when(paymentRepository.findByOrder(any(Order.class))).thenReturn(Optional.empty());
     }
 
     @Test
@@ -161,6 +165,6 @@ class OrderServiceTest {
         RuntimeException ex = assertThrows(RuntimeException.class,
                 () -> orderService.cancel("christian@email.com", 1L));
 
-        assertEquals("Pedido já entregue não pode ser cancelado.", ex.getMessage());
+        assertEquals("Pedido ja entregue nao pode ser cancelado.", ex.getMessage());
     }
 }

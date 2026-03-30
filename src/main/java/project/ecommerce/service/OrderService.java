@@ -1,5 +1,7 @@
 package project.ecommerce.service;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import project.ecommerce.dto.AddressResponse;
 import project.ecommerce.dto.OrderItemResponse;
 import project.ecommerce.dto.OrderResponse;
@@ -31,7 +33,7 @@ public class OrderService {
     private final AddressRepository addressRepository;
     private final CouponService couponService;
     private final EmailService emailService;
-
+    private final PaymentRepository paymentRepository;
 
     @Caching(evict = {
             @CacheEvict(value = "dashboard", allEntries = true),
@@ -49,7 +51,6 @@ public class OrderService {
             throw new RuntimeException("Carrinho esta vazio.");
         }
 
-        // Resolve o endereco de entrega
         Address deliveryAddress = null;
         if (addressId != null) {
             deliveryAddress = addressRepository.findByIdAndUser(addressId, user)
@@ -59,7 +60,6 @@ public class OrderService {
                     .orElse(null);
         }
 
-        // Valida estoque e deduz quantidade
         for (CartItem cartItem : cart.getItems()) {
             Product product = cartItem.getProduct();
 
@@ -75,7 +75,6 @@ public class OrderService {
             productRepository.save(product);
         }
 
-        // Cria os itens do pedido
         List<OrderItem> orderItems = cart.getItems().stream()
                 .map(cartItem -> OrderItem.builder()
                         .product(cartItem.getProduct())
@@ -86,22 +85,18 @@ public class OrderService {
                         .build())
                 .collect(Collectors.toList());
 
-        // Calcula subtotal
         BigDecimal subtotal = orderItems.stream()
                 .map(OrderItem::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Aplica cupom se existir no carrinho
         Coupon coupon = cart.getCoupon();
         BigDecimal discount = couponService.calculateDiscount(coupon, subtotal);
         BigDecimal total = subtotal.subtract(discount);
 
-        // Incrementa uso do cupom
         if (coupon != null) {
             couponService.incrementUsage(coupon);
         }
 
-        // Cria o pedido
         Order order = Order.builder()
                 .user(user)
                 .status(OrderStatus.PENDING)
@@ -115,7 +110,6 @@ public class OrderService {
 
         order = orderRepository.save(order);
 
-        // Vincula os itens ao pedido
         for (OrderItem item : orderItems) {
             item.setOrder(order);
         }
@@ -129,7 +123,6 @@ public class OrderService {
                 order.getTotal().toPlainString()
         );
 
-        // Limpa o carrinho incluindo o cupom
         cart.getItems().clear();
         cart.setCoupon(null);
         cartRepository.save(cart);
@@ -144,24 +137,23 @@ public class OrderService {
     @Transactional
     public OrderResponse cancel(String email, Long orderId) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Usuario nao encontrado."));
 
         Order order = orderRepository.findByIdAndActiveTrue(orderId)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Pedido nao encontrado."));
 
         if (!order.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Pedido não pertence ao usuário.");
+            throw new RuntimeException("Pedido nao pertence ao usuario.");
         }
 
         if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new RuntimeException("Pedido já entregue não pode ser cancelado.");
+            throw new RuntimeException("Pedido ja entregue nao pode ser cancelado.");
         }
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new RuntimeException("Pedido já está cancelado.");
+            throw new RuntimeException("Pedido ja esta cancelado.");
         }
 
-        // Devolve os itens ao estoque
         for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
             product.setStockQuantity(product.getStockQuantity() + item.getQuantity());
@@ -181,53 +173,47 @@ public class OrderService {
         return toResponse(order);
     }
 
-    // Usuário vê apenas seus pedidos ativos
     public Page<OrderResponse> findMyOrders(String email, Pageable pageable) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Usuario nao encontrado."));
         return orderRepository.findByUserAndActiveTrue(user, pageable)
                 .map(this::toResponse);
     }
 
-    // Usuário busca pedido por ID
     public OrderResponse findMyOrderById(String email, Long orderId) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Usuario nao encontrado."));
 
         Order order = orderRepository.findByIdAndActiveTrue(orderId)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Pedido nao encontrado."));
 
         if (!order.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("Pedido não pertence ao usuário.");
+            throw new RuntimeException("Pedido nao pertence ao usuario.");
         }
 
         return toResponse(order);
     }
 
-    // ADMIN vê todos os pedidos ativos
     public Page<OrderResponse> findAll(Pageable pageable) {
         return orderRepository.findByActiveTrue(pageable)
                 .map(this::toResponse);
     }
 
-    // ADMIN vê todos incluindo cancelados
     public Page<OrderResponse> findAllIncludingInactive(Pageable pageable) {
         return orderRepository.findAll(pageable)
                 .map(this::toResponse);
     }
 
-    // ADMIN atualiza status do pedido
     @Transactional
     public OrderResponse updateStatus(Long orderId, OrderStatus status) {
         Order order = orderRepository.findByIdAndActiveTrue(orderId)
-                .orElseThrow(() -> new RuntimeException("Pedido não encontrado."));
+                .orElseThrow(() -> new RuntimeException("Pedido nao encontrado."));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new RuntimeException("Pedido cancelado não pode ser atualizado.");
+            throw new RuntimeException("Pedido cancelado nao pode ser atualizado.");
         }
 
         order.setStatus(status);
-
         orderRepository.save(order);
 
         emailService.sendOrderStatusUpdatedEmail(
@@ -238,6 +224,16 @@ public class OrderService {
         );
 
         return toResponse(order);
+    }
+
+    public Page<OrderResponse> findAllAdmin(int page, int size, OrderStatus status) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        if (status != null) {
+            return orderRepository.findByStatus(status, pageable)
+                    .map(this::toResponse);
+        }
+        return orderRepository.findAll(pageable)
+                .map(this::toResponse);
     }
 
     private OrderResponse toResponse(Order order) {
@@ -272,12 +268,20 @@ public class OrderService {
             addressResponse.setMain(order.getDeliveryAddress().getMain());
         }
 
+        // Busca status do pagamento via repository (evita OneToMany no Order)
+        String paymentStatus = paymentRepository.findByOrder(order)
+                .map(payment -> payment.getStatus().name())
+                .orElse("PENDING");
+
         OrderResponse response = new OrderResponse();
         response.setId(order.getId());
         response.setStatus(order.getStatus());
         response.setSubtotal(subtotal);
         response.setDiscount(order.getDiscount());
         response.setTotal(order.getTotal());
+        response.setUserName(order.getUser().getName());
+        response.setUserEmail(order.getUser().getEmail());
+        response.setPaymentStatus(paymentStatus);
         response.setCouponCode(order.getCoupon() != null ? order.getCoupon().getCode() : null);
         response.setCreatedAt(order.getCreatedAt());
         response.setActive(order.getActive());

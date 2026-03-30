@@ -66,4 +66,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     BigDecimal findRevenueByPeriod(
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end);
+
+    Page<Order> findByStatus(OrderStatus status, Pageable pageable);
+
+    Page<Order> findByUser(User user, Pageable pageable);
+
 }

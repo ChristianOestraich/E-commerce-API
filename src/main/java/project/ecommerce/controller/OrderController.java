@@ -68,4 +68,15 @@ public class OrderController {
                                                       @RequestParam OrderStatus status) {
         return ResponseEntity.ok(orderService.updateStatus(orderId, status));
     }
+
+    // ADMIN — lista pedidos com filtro opcional de status
+    // Adicione esse método no OrderController
+    @GetMapping("/admin")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Page<OrderResponse>> findAllAdmin(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) OrderStatus status) {
+        return ResponseEntity.ok(orderService.findAllAdmin(page, size, status));
+    }
 }

@@ -1,5 +1,7 @@
 package project.ecommerce.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import project.ecommerce.entity.User;
 
@@ -14,4 +16,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByActiveTrue();
 
     Optional<User> findByIdAndActiveTrue(Long id);
+
+    Page<User> findByActiveTrue(Pageable pageable);
+
+    Page<User> findByActiveTrueAndNameContainingIgnoreCaseOrActiveTrueAndEmailContainingIgnoreCase(
+            String name, String email, Pageable pageable);
 }
