@@ -40,10 +40,23 @@ public class SecurityConfig {
                                 "/v3/api-docs/**"
                         ).permitAll()
                         .requestMatchers("/api/images/**").permitAll()
+                        .requestMatchers("/api/auth/register", "/api/auth/login",
+                                "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(
                                 "/api/payments/success",
                                 "/api/payments/failure",
                                 "/api/payments/pending"
+                        ).permitAll()
+                        // Rotas publicas do catalogo
+                        .requestMatchers(
+                                "/api/products",
+                                "/api/products/search",
+                                "/api/products/category/**",
+                                "/api/products/{id}",
+                                "/api/products/*/reviews",
+                                "/api/products/*/rating",
+                                "/api/categories",
+                                "/api/categories/**"
                         ).permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
